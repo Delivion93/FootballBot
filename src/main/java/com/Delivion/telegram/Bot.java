@@ -2,6 +2,7 @@ package com.Delivion.telegram;
 
 
 import com.Delivion.matchInfo.Client;
+import com.Delivion.matchInfo.FlagsUnicodes;
 import com.Delivion.matchInfo.Match;
 import com.Delivion.matchInfo.MatchInfo;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -18,6 +19,8 @@ import java.util.*;
 
 
 public class Bot extends TelegramLongPollingBot {
+
+    private final Map<String, String> flagsUnicodes  = FlagsUnicodes.flagsUnicodes;
 
     public static void main(String[] args) throws TelegramApiException {
         TelegramBotsApi tbapi = new TelegramBotsApi(DefaultBotSession.class);
@@ -38,21 +41,29 @@ public class Bot extends TelegramLongPollingBot {
     public void onUpdateReceived(Update update) {
 
         Long chatId = getChatId(update);
-        SendMessage message = new SendMessage();
-        message.setText("Select country");
-        Map<String, String> countries;
-        try {
-            countries = getMapOfCountries();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        System.out.println(update.getMessage().getChat().getUserName());
+
+        if(update.hasMessage()&&update.getMessage().getText().equals("/start")){
+            SendMessage message = createMessage("Наразі відбуваються матчі в таких країнах :");
+            Map<String, String> countries;
+            try {
+                countries = getMapOfCountries();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            attachButtons(message,countries);
+
+            message.setChatId(chatId);
+            sendApiMethodAsync(message);
         }
-
-        attachButtons(message,countries);
-
-        message.setChatId(chatId);
-        sendApiMethodAsync(message);
     }
 
+    private SendMessage createMessage(String text){
+        SendMessage message = new SendMessage();
+        message.setText(text);
+        return message;
+    }
 
     private Map<String, String> getMapOfCountries() throws IOException {
 
@@ -61,7 +72,13 @@ public class Bot extends TelegramLongPollingBot {
 
         for (Match match : matches) {
             mapOfCountries.put(match.getCountry().getName().toUpperCase(),match.getCountry().getName()+"_btn");
+
+//            System.out.println(match.getHome().getName()+" - "+match.getAway().getName()+"| Country - "
+//            +match.getCountry().getName()
+//            +" "+match.getScores().getScore());
+
         }
+
 
         return mapOfCountries;
     }
@@ -93,10 +110,18 @@ public class Bot extends TelegramLongPollingBot {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
         for (String buttonName : buttons.keySet()) {
+
             String buttonValue = buttons.get(buttonName);
+            String buttonText;
+            if(flagsUnicodes.containsKey(buttonName)){
+                buttonText = buttonName+flagsUnicodes.get(buttonName);
+            }
+            else{
+                buttonText=buttonName;
+            }
 
             InlineKeyboardButton button = new InlineKeyboardButton();
-            button.setText(buttonName);
+            button.setText(buttonText);
             button.setCallbackData(buttonValue);
 
             keyboard.add(Arrays.asList(button));
